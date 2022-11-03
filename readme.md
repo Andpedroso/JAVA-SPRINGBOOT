@@ -4,17 +4,17 @@
 ---
 ### Escopo:
 ---
-#### O projeto Web café deve receber pedidos relacionados a uma mesa. Cada mesa tem uma comanda com um identificador, o número da mesa, se é vip ou não, a data da comanda, os itens e um total. Cada item possui um identificador, uma descrição, uma valor, uma quantidade e um total.
+#### O projeto Web café deve receber pedidos relacionados a uma mesa. Cada mesa tem uma comanda com um identificador, o número da mesa, se é vip ou não, a data da comanda, os itens e um total. Cada item possui um identificador, uma descrição, um valor, uma quantidade e um total.
 ---
 #### O projeto está dividido no projeto desenhado e testes.
 ---
 #### Deve ser gerado um projeto Springboot com as seguintes dependências iniciais:
 - (Springboot)[https://start.spring.io/]
-> Spring Web
-> Spring Data JPA
-> Lombok
-> H2 Database
-> Validation
+- Spring Web
+- Spring Data JPA
+- Lombok
+- H2 Database
+- Validation
 ---
 ## Configurações
 ---
@@ -540,12 +540,11 @@ public class ComandaControllerTest {
 ---
 ### package service
 ---
-> ComandaService
+> ComandaServiceTest
 ```bash
-package com.andpedroso.java.webcafe.controller;
+package com.andpedroso.java.webcafe.service;
 
-import com.andpedroso.java.webcafe.model.ComandaEItem;
-import com.andpedroso.java.webcafe.model.Item;
+import com.andpedroso.java.webcafe.TesteUtil;
 import com.andpedroso.java.webcafe.repo.ComandaRepo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -553,98 +552,50 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.math.BigDecimal;
-
-import static com.andpedroso.java.webcafe.TesteUtil.asJsonString;
-import static com.andpedroso.java.webcafe.TesteUtil.criaComanda;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class ComandaControllerTest {
+public class ComandaServiceTest {
     @Autowired
-    private MockMvc mock;
+    private ComandaService service;
     @Autowired
     private ComandaRepo repo;
     @BeforeEach
-    void criarComanda() throws Exception{
-        mock.perform(post("/api/incluirComanda")
-                .content(asJsonString(criaComanda()))
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON))
-                .andDo(print())
-                .andExpect(status().isOk());
+    void criarComanda(){
+        service.salvar(TesteUtil.criaComanda());
     }
     @AfterEach
-    void excluirComanda(){ repo.deleteAll(); }
-    @Test
-    void listarComanda() throws Exception {
-        mock.perform(get("/api/listarComandas")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andDo(print())
-                .andExpect(status().isOk());
+    void excluirComanda(){
+        repo.deleteAll();
     }
     @Test
-    void localizarPorMesa() throws Exception {
-        mock.perform(get("/api/localizar")
-                        .param("mesa", "1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andDo(print())
-                .andExpect(status().isOk());
+    void listarComanda(){
+        var resultado = service.listar(0, 10, "mesa");
+        assertThat(resultado.isEmpty()).isFalse();
     }
     @Test
-    void removerComanda() throws Exception {
-        var comanda = repo.findByMesa(1);
+    void localizarPorMesa(){
+        var comanda = service.localizar(1);
         assertThat(comanda.isPresent()).isTrue();
-        mock.perform(delete("/api/removerComanda/{id}",
-                        comanda.get().getId())
-                        .content(asJsonString(criaComanda()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andDo(print())
-                .andExpect(status().isOk());
     }
     @Test
-    void incluirItem() throws Exception {
-        var comanda = repo.findByMesa(1);
-        assertThat(comanda.isPresent()).isTrue();
-        var item = Item.builder()
-                .descricao("Empada de carne")
-                .quantidade(2)
-                .valor(new BigDecimal("7.50"))
-                .build();
-        var comandaEItem = ComandaEItem.builder()
-                .idComanda(comanda.get().getId())
-                .item(item)
-                        .build();
-        mock.perform(post("/api/incluirItem")
-                        .content(asJsonString(comandaEItem))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andDo(print())
-                .andExpect(status().isOk());
-    }
-    @Test
-    void removerItem() throws Exception {
-        var comanda = repo.findByMesa(1);
+    void verificarItens(){
+        var comanda = service.localizar(1);
         assertThat(comanda.isPresent()).isTrue();
         var itens = comanda.get().getItens();
-        mock.perform(delete("/api/removerItem")
-                        .param("idComanda", comanda.get().getId().toString())
-                        .param("idItem", itens.get(1).getId().toString())
-                        .content(asJsonString(criaComanda()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.APPLICATION_JSON))
-                .andDo(print())
-                .andExpect(status().isOk());
+        assertThat(itens.size() == 3).isTrue();
+        assertThat(itens.stream().filter(item -> item.getDescricao()
+                        .equals("Cappuccino"))
+                .count() == 1
+        ).isTrue();
+    }
+    @Test
+    void removerComanda(){
+        var comanda = service.localizar(1);
+        assertThat(comanda.isPresent()).isTrue();
+        var resultado = service.remover(comanda.get().getId());
+        assertThat(resultado).isTrue();
     }
 }
 ```
@@ -779,8 +730,8 @@ class ComandaApplicationTests {
 ---
 ## Rodar o projeto
 ---
-### Para rodar o projeto deve ser executada a classe main e devem ser usadas as urls comentadas em proprerties tanto para o Banco de dados quanto para o Swagger.
-### Para rodar os testes clicar com o direito na pasta que com.andpedroso.java.webcafe e rodar todos os testes. Também podem ser rodados separadamente.
+### Para rodar o projeto deve ser executada a classe main e devem ser usadas as urls comentadas em propriedades tanto para o banco de dados quanto para o Swagger.
+### Para rodar os testes clicar com o direito na pasta com.andpedroso.java.webcafe e rodar todos os testes. Os testes também podem ser rodados separadamente.
 ---
 ## Créditos
 ---
